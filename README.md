@@ -1,1 +1,3 @@
-# collaborative-event-scheduler-34234
+# Project Repository
+
+This is the initial README file for the project.
