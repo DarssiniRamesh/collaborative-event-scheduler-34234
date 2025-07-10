@@ -1,0 +1,4 @@
+{
+    "command": "pytest",
+    "working_directory": "/home/kavia/workspace/code-generation/collaborative-event-scheduler-34234/scheduler_backend"
+}
