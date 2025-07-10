@@ -15,11 +15,12 @@ from .ws import router as ws_router
 load_dotenv()
 
 PORT = int(os.getenv("PORT", "3001"))
-OAUTH_CLIENT_ID = os.getenv("OAUTH_CLIENT_ID")
-OAUTH_CLIENT_SECRET = os.getenv("OAUTH_CLIENT_SECRET")
+# Remove unused OAUTH_CLIENT_ID/SECRET to avoid confusion—they are not used here
+# OAUTH_CLIENT_ID = os.getenv("OAUTH_CLIENT_ID")
+# OAUTH_CLIENT_SECRET = os.getenv("OAUTH_CLIENT_SECRET")
 
 # CORS
-CORS_ALLOW_ORIGINS = os.getenv("CORS_ALLOW_ORIGINS", "*").split(",")
+CORS_ALLOW_ORIGINS = [origin.strip() for origin in os.getenv("CORS_ALLOW_ORIGINS", "*").split(",")]
 
 app = FastAPI(
     title="Collaborative Scheduler Backend",
