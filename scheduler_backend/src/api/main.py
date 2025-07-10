@@ -6,6 +6,9 @@ from dotenv import load_dotenv
 
 from .db import check_db_connection
 
+# Import authentication routes
+from .auth import router as auth_router
+
 # Load env variables from .env file if present
 load_dotenv()
 
@@ -23,8 +26,12 @@ app = FastAPI(
     openapi_tags=[
         {"name": "health", "description": "Service health and diagnostics"},
         {"name": "database", "description": "Database connectivity and diagnostics"},
+        {"name": "auth", "description": "User authentication and SSO endpoints"},
     ]
 )
+
+# Mount authentication endpoints
+app.include_router(auth_router)
 
 # Apply open CORS policy
 app.add_middleware(
