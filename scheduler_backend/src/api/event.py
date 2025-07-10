@@ -14,6 +14,11 @@ from pydantic import BaseModel, Field, EmailStr
 from .db import get_db_connection
 from .auth import get_user_from_token, User
 from .ws import emit_event_update
+from .notifications import (
+    send_bulk_notifications,
+    make_invitation_email,
+    make_update_email,
+)
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -131,6 +136,8 @@ def create_event(
     # Add participants
     participants_info = []
     participant_emails = event.participants or []
+    # Collect for notifications
+    emails_to_notify = []
     for email in participant_emails:
         cur.execute(
             """INSERT OR IGNORE INTO event_participants
@@ -148,6 +155,7 @@ def create_event(
                 responded_at=None
             )
         )
+        emails_to_notify.append(email)
     # Add owner as "accepted"
     cur.execute(
         """INSERT OR IGNORE INTO event_participants
@@ -156,6 +164,17 @@ def create_event(
         (eid, user.id, user.email, user.id, "accepted", now),
     )
     conn.commit()
+
+    # Send invitation emails after commit (to avoid failed DB insert but sent email)
+    if emails_to_notify:
+        event_time_range = f"{event.start_time} to {event.end_time}"
+        subject, body = make_invitation_email(
+            event_title=event.title,
+            inviter=user.name,
+            event_time=event_time_range,
+            event_desc=event.description
+        )
+        send_bulk_notifications(emails_to_notify, subject, body)
 
     # Fetch and return the created event
     event_row = cur.execute("SELECT * FROM events WHERE id = ?", (eid,)).fetchone()
@@ -349,6 +368,20 @@ def update_event(
             responded_at=p[6],
         ) for p in parts
     ]
+    # Send update emails
+    # Find all "accepted" and "invited" participants except owner
+    notify_emails = [
+        p.email for p in parts
+        if p[3] and p[4] in ("accepted", "invited") and p[2] != user.id
+    ]
+    if notify_emails:
+        event_time_range = f"{row[4]} to {row[5]}"
+        subject, body = make_update_email(
+            event_title=row[2],  # title
+            event_time=event_time_range,
+            event_desc=row[3]  # description
+        )
+        send_bulk_notifications(notify_emails, subject, body)
     conn.close()
     resp = EventResponse(
         id=row[0],
