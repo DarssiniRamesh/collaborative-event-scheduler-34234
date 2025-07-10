@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, Field, EmailStr
 from .db import get_db_connection
 from .auth import get_user_from_token, User
+from .ws import emit_event_update
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -171,7 +172,7 @@ def create_event(
         ) for p in parts
     ]
     conn.close()
-    return EventResponse(
+    resp = EventResponse(
         id=event_row[0],
         owner_id=event_row[1],
         title=event_row[2],
@@ -183,6 +184,10 @@ def create_event(
         updated_at=event_row[8],
         participants=participants,
     )
+    # Real-time notify all clients (fire-and-forget)
+    import asyncio
+    asyncio.create_task(emit_event_update("created", resp.model_dump()))
+    return resp
 
 # PUBLIC_INTERFACE
 @router.get("/", response_model=List[EventResponse], summary="List events for user (owned or invited)")
@@ -345,7 +350,7 @@ def update_event(
         ) for p in parts
     ]
     conn.close()
-    return EventResponse(
+    resp = EventResponse(
         id=row[0],
         owner_id=row[1],
         title=row[2],
@@ -357,6 +362,10 @@ def update_event(
         updated_at=row[8],
         participants=participants,
     )
+    # Real-time notify update
+    import asyncio
+    asyncio.create_task(emit_event_update("updated", resp.model_dump()))
+    return resp
 
 # PUBLIC_INTERFACE
 @router.delete("/{event_id}", status_code=204, summary="Delete event")
@@ -380,6 +389,9 @@ def delete_event(
     cur.execute("DELETE FROM events WHERE id=?", (event_id,))
     conn.commit()
     conn.close()
+    # Real-time notify all clients (minimal info for deletion)
+    import asyncio
+    asyncio.create_task(emit_event_update("deleted", {"id": event_id}))
     return
 
 # PUBLIC_INTERFACE
@@ -410,6 +422,13 @@ def respond_to_invitation(
     )
     conn.commit()
     conn.close()
+    # Real-time participation/invitation update
+    import asyncio
+    asyncio.create_task(emit_event_update("participation", {
+        "event_id": event_id,
+        "user_id": user.id,
+        "status": response_status,
+    }))
     return {"success": True}
 
 
