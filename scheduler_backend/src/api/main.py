@@ -8,6 +8,7 @@ from .db import check_db_connection
 
 # Import authentication routes
 from .auth import router as auth_router
+from .event import router as event_router
 
 # Load env variables from .env file if present
 load_dotenv()
@@ -32,6 +33,7 @@ app = FastAPI(
 
 # Mount authentication endpoints
 app.include_router(auth_router)
+app.include_router(event_router)
 
 # Apply open CORS policy
 app.add_middleware(
